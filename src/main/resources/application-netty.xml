@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:cache="http://www.springframework.org/schema/cache"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans   
+        http://www.springframework.org/schema/beans/spring-beans-4.1.xsd  
+        http://www.springframework.org/schema/context   
+        http://www.springframework.org/schema/context/spring-context-4.1.xsd">
+
+
+	<bean id="bossGroup" class="io.netty.channel.nio.NioEventLoopGroup"></bean>
+	<bean id="workerGroup" class="io.netty.channel.nio.NioEventLoopGroup"></bean>
+	<bean id="serverBootstrap" class="io.netty.bootstrap.ServerBootstrap" scope="prototype"></bean>
+	<bean id="webSocketServer" class="com.netty.server.WebSocketServer">
+
+		<property name="port" value="${websocket.server.port}"></property>
+		<property name="childChannelHandler" ref="webSocketChildChannelHandler" />
+	</bean>
+</beans>
