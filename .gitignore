@@ -18,7 +18,7 @@
 *.7z  
 *.dmg  
 *.gz  
-*.iso  
+*.iso
 *.jar  
 *.rar  
 *.tar  
@@ -36,3 +36,4 @@ Icon?
 ehthumbs.db  
 Thumbs.db
 *.properties
+.idea
