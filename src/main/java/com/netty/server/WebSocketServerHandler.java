@@ -1,6 +1,5 @@
 package com.netty.server;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -13,8 +12,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.netty.constant.Constant;
 import com.netty.entity.OneToOneMessage;
-import com.netty.util.RedisDB;
-import com.netty.util.SerializeUtil;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -36,7 +33,6 @@ import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
 import io.netty.util.CharsetUtil;
-import redis.clients.jedis.Jedis;
 
 /**
  * websocket 具体业务处理方法
@@ -57,9 +53,8 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 		// TODO Auto-generated method stub
 		
 //		ctx.channel().write(new TextWebSocketFrame("server:主动给客户端发消息"));
-//		ctx.flush();
-		System.out.println("当客户端连接成功，返回个成功信息");
-		push(ctx, "服务器收到并返回：连接成功！@！@！@！@");
+		ctx.flush();
+		
 		
 		
 	}
@@ -85,7 +80,7 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 	@Override
 	public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
 		// TODO Auto-generated method stub
-		System.out.println("channelReadComplete");
+//		System.out.println("channelReadComplete");
 		ctx.flush();
 	}
 
@@ -191,12 +186,8 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
         }else if(4 == Integer.valueOf(jsonObject.get("type").toString())) { // 客户端告知已读消息
         	//置为0条未读消息
         	Constant.unreadHistoryMessage.put(Constant.getOneToOneUnReadMessageKey(Integer.valueOf(jsonObject.get("from").toString()),Integer.valueOf(jsonObject.get("to").toString())),0);
-        }else if(5 == Integer.valueOf(jsonObject.get("type").toString())) {  //客户端定时请求拉取最新联系人列表
-        	Map<String,Object> ContactsMap = new HashMap<>();
-			ContactsMap.put("id", "");
-			ContactsMap.put("type", 5);
-			ContactsMap.put("data", Constant.getOneToOneUnReadMessageCount(Constant.contactsList, Integer.valueOf(jsonObject.get("userId").toString())));
-			ctx.channel().write(new TextWebSocketFrame(JSON.toJSONString(ContactsMap)));
+        }else if(5 == Integer.valueOf(jsonObject.get("type").toString())) {
+        	
         }
 	}
 
@@ -238,6 +229,9 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 
 			//先不写
 
+			System.out.println("当客户端连接成功，返回个成功信息");
+			push(ctx, "服务器收到并返回：连接成功！@！@！@！@");
+			
 			//websocket连接校验  结束
 			
 			//加入列表
@@ -251,18 +245,6 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 			systemMsg.put("data", "服务器推送消息：登陆成功！！！@@@");
 			ctx.channel().write(new TextWebSocketFrame(JSON.toJSONString(systemMsg)));
 	        
-			//把当前登陆用户的上线消息 推送给其他用户
-			/*Map<String,Object> contactsIsOnline = new HashMap<>();
-			contactsIsOnline.put("id", userId);
-			contactsIsOnline.put("type", 1);
-			for (String key : Constant.pushCtxMap.keySet()) {
-				if(!key.equals(userId)) {
-					contactsIsOnline.put("data", Constant.getOneToOneUnReadMessageCount(Constant.contactsList , Integer.valueOf(key)));
-					//这里使用的是单个推送
-					push(Constant.pushCtxMap.get(key),JSON.toJSONString(contactsIsOnline));
-				}
-			}*/
-
 	        //当前登陆用户的联系人列表
 			Map<String,Object> ContactsMap = new HashMap<>();
 			ContactsMap.put("id", userId);

@@ -5,6 +5,8 @@ import java.util.Date;
 
 public class CommonUtil {
 
+	public static SimpleDateFormat ymdhms = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	
     /**
      *
      * @param date  传入的时间

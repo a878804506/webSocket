@@ -11,10 +11,18 @@ import org.apache.zookeeper.data.Id;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.auth.DigestAuthenticationProvider;
 
+import com.alibaba.fastjson.JSON;
+import com.netty.constant.Constant;
+import com.netty.server.BaseWebSocketServerHandler;
+
+import redis.clients.jedis.Jedis;
+
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ZookeeperUtil {
 
@@ -178,7 +186,8 @@ public class ZookeeperUtil {
     AuthFailed（4）         None（-1）              通常有两种情况，1：使用错误的schema进行权限检查 2：SASL权限检查失败/通常同时也会收到AuthFailedException异常
     */
     //注册监听器，用于监听PATH上的变化
-    public static void zkNodeCache(){
+    @SuppressWarnings("resource")
+	public static void zkNodeCache(){
         try {
             NodeCache nodeCache = new NodeCache(client, PATH, false);
             NodeCacheListener ncl = new NodeCacheListener() {
@@ -199,27 +208,87 @@ public class ZookeeperUtil {
     }
 
     //注册监听器，用于监听PATH节点下所有子节点的变化
-    public static void zkPathChildrenCache(){
+    @SuppressWarnings("resource")
+	public static void zkPathChildrenCache(){
         try {
-            PathChildrenCache cache = new PathChildrenCache(client, PATH, true);
+			PathChildrenCache cache = new PathChildrenCache(client, PATH, true);
             PathChildrenCacheListener pccl = new PathChildrenCacheListener() {
                 @Override
                 public void childEvent(CuratorFramework client,PathChildrenCacheEvent event) {
                     try {
                         ChildData data = event.getData();
+                        Jedis jedis = null;
                         switch (event.getType()) {
                             case CHILD_ADDED:
-                                System.out.println("子节点增加, path={}, data={}"+data.getPath()+ ",该节点数据为："+ new String(data.getData(), "UTF-8"));
+                                System.out.println("有用户上线, path={}, data={}"+data.getPath()+ ",该节点数据为："+ new String(data.getData(), "UTF-8"));
+                                try {
+                                	jedis = RedisDB.getJedis();
+                                    jedis.select(RedisDB.dbSelectedForSystem);
+                    				synchronized (Constant.contactsList) {
+                    					//获取redis中最新的联系人列表
+                    					List<Map<String,Object>> redis_contactsList = SerializeUtil.unserializeForList(jedis.get(RedisDB.systemUsers.getBytes()));
+                    					String userId = new String(data.getData(), "UTF-8");
+                                        //把当前登陆用户的上线消息 推送给其他用户
+                              			Map<String,Object> contactsIsOnline = new HashMap<>();
+                              			contactsIsOnline.put("id", userId);
+                              			contactsIsOnline.put("type", 1);
+                              			for (String key : Constant.pushCtxMap.keySet()) {
+                              				if(!key.equals(userId)) {
+                              					contactsIsOnline.put("data", Constant.getOneToOneUnReadMessageCount( redis_contactsList, Integer.valueOf(key)));
+                              					//这里使用的是单个推送
+                              					BaseWebSocketServerHandler.push(Constant.pushCtxMap.get(key),JSON.toJSONString(contactsIsOnline));
+                              				}
+                              			}
+                              			//最新的联系人列表 赋值给本地 contactsList
+                              			Constant.contactsList = redis_contactsList;
+                    				}
+								} catch (Exception e) {
+									e.printStackTrace();
+									RedisDB.returnBrokenResource(jedis);
+								}finally {
+									RedisDB.returnResource(jedis);
+								}
                                 break;
                             case CHILD_UPDATED:
                                 System.out.println("子节点更新, path={}, data={}"+data.getPath()+ ",该节点数据为："+ new String(data.getData(), "UTF-8"));
                                 break;
                             case CHILD_REMOVED:
-                                System.out.println("子节点删除, path={}, data={}"+data.getPath()+ ",该节点数据为："+new String(data.getData(), "UTF-8"));
+                                System.out.println("有用户下线，子节点删除, path={}, data={}"+data.getPath()+ ",该节点数据为："+new String(data.getData(), "UTF-8"));
+                                try {
+                                	jedis = RedisDB.getJedis();
+                                    jedis.select(RedisDB.dbSelectedForSystem);
+                    				synchronized (Constant.contactsList) {
+                    					//获取redis中最新的联系人列表
+                    					List<Map<String,Object>> redis_contactsList = SerializeUtil.unserializeForList(jedis.get(RedisDB.systemUsers.getBytes()));
+                    					String userId = new String(data.getData(), "UTF-8");
+                                        //把当前登陆用户的下线消息 推送给其他用户
+                              			Map<String,Object> contactsIsOnline = new HashMap<>();
+                              			contactsIsOnline.put("id", userId);
+                              			contactsIsOnline.put("type", 5);
+                              			for (String key : Constant.pushCtxMap.keySet()) {
+                              				if(!key.equals(userId)) {
+                              					contactsIsOnline.put("data", Constant.getOneToOneUnReadMessageCount( redis_contactsList, Integer.valueOf(key)));
+                              					//这里使用的是单个推送
+                              					BaseWebSocketServerHandler.push(Constant.pushCtxMap.get(key),JSON.toJSONString(contactsIsOnline));
+                              				}
+                              			}
+                              			//最新的联系人列表 赋值给本地 contactsList
+                              			Constant.contactsList = redis_contactsList;
+                    				}
+								} catch (Exception e) {
+									e.printStackTrace();
+									RedisDB.returnBrokenResource(jedis);
+								}finally {
+									RedisDB.returnResource(jedis);
+								}
                                 break;
                             default:
                                 break;
                         }
+                        //打印最新联系人列表
+                        for (Map<String, Object> ttt : Constant.contactsList) {
+    						System.out.println("["+CommonUtil.ymdhms.format(new Date())+"]name:"+ttt.get("name")+"-----nickName:"+ttt.get("nickName")+"-----isOnline:"+ttt.get("isOnline"));
+    					}
                         } catch (Exception e) {
                         e.printStackTrace();
                     }
