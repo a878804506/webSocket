@@ -201,7 +201,7 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 	}
 
 	// 第一次请求是http请求，请求头包括ws的信息
-	public void handleHttpRequest(ChannelHandlerContext ctx, FullHttpRequest req) throws UnsupportedEncodingException {
+	public void handleHttpRequest(ChannelHandlerContext ctx, FullHttpRequest req)  {
 		if (!req.decoderResult().isSuccess()) {
 			sendHttpResponse(ctx, req,new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST));
 			return;
@@ -235,19 +235,9 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 			//websocket连接校验  开始
 			String sessionId = (String) jsonObject.get("id");
 			String userId = (String)jsonObject.get("userId").toString();
-			int isOnline = -1;  // -1:非法id     0:离线     1:  在线
-			for (Map<String, Object> temp : Constant.contactsList) {
-				if(userId.equals(temp.get("id").toString())) {
-					if("true".equals(temp.get("isOnline").toString()))
-						isOnline = 1;
-					if("false".equals(temp.get("isOnline").toString()))
-						isOnline = 0;
-					break;
-				}
-			}
-			if(isOnline == -1) //非法用户
-				return;
-			
+
+			//先不写
+
 			//websocket连接校验  结束
 			
 			//加入列表
@@ -261,55 +251,18 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 			systemMsg.put("data", "服务器推送消息：登陆成功！！！@@@");
 			ctx.channel().write(new TextWebSocketFrame(JSON.toJSONString(systemMsg)));
 	        
-			if(isOnline == 0) {
-				//保存最新联系人列表
-		        synchronized (Constant.contactsList) {
-		        	Jedis jedis =null;
-		        	try {
-		        		jedis = RedisDB.getJedis();
-						jedis.select(RedisDB.dbSelectedForSystem);
-						List<Map<String,Object>> redis_contactsList = SerializeUtil.unserializeForList(jedis.get(RedisDB.systemUsers.getBytes()));
-				        //本次登陆用户信息
-				        Map<String,Object> thisLoginContacts = null; 
-				        for (Map<String, Object> temp : redis_contactsList) {
-				        	if(userId.equals(temp.get("id").toString())){
-				        		temp.put("isOnline", true);
-				        		thisLoginContacts = temp;
-				            }
-						}
-				        //最新联系人列表   全部联系人列表在线情况排序
-				        List<Map<String,Object>> contactsList = new LinkedList<>(); 
-				        contactsList.add(thisLoginContacts);
-				        for (Map<String, Object> temp : redis_contactsList) {
-							if(!temp.get("id").toString().equals(thisLoginContacts.get("id").toString())) {
-								contactsList.add(temp);
-							}
-						}
-				        //本地赋值最新列表
-				        Constant.contactsList .clear();
-			        	Constant.contactsList  = contactsList;
-			        	//远程赋值最新列表
-			        	jedis.set(RedisDB.systemUsers.getBytes(), SerializeUtil.serialize(contactsList));
-					} catch (Exception e) {
-						e.printStackTrace();
-						RedisDB.returnBrokenResource(jedis);
-					}finally {
-						RedisDB.returnResource(jedis);
-					}
+			//把当前登陆用户的上线消息 推送给其他用户
+			/*Map<String,Object> contactsIsOnline = new HashMap<>();
+			contactsIsOnline.put("id", userId);
+			contactsIsOnline.put("type", 1);
+			for (String key : Constant.pushCtxMap.keySet()) {
+				if(!key.equals(userId)) {
+					contactsIsOnline.put("data", Constant.getOneToOneUnReadMessageCount(Constant.contactsList , Integer.valueOf(key)));
+					//这里使用的是单个推送
+					push(Constant.pushCtxMap.get(key),JSON.toJSONString(contactsIsOnline));
 				}
-		        //把当前登陆用户的上线消息 推送给其他用户
-				Map<String,Object> contactsIsOnline = new HashMap<>();
-				contactsIsOnline.put("id", userId);
-				contactsIsOnline.put("type", 1);
-				for (String key : Constant.pushCtxMap.keySet()) {
-					if(!key.equals(userId)) {
-						contactsIsOnline.put("data", Constant.getOneToOneUnReadMessageCount(Constant.contactsList , Integer.valueOf(key)));
-						//这里使用的是单个推送
-						push(Constant.pushCtxMap.get(key),JSON.toJSONString(contactsIsOnline));
-		            }
-				}
-			}
-			
+			}*/
+
 	        //当前登陆用户的联系人列表
 			Map<String,Object> ContactsMap = new HashMap<>();
 			ContactsMap.put("id", userId);

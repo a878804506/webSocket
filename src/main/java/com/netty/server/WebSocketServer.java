@@ -2,6 +2,8 @@ package com.netty.server;
 
 import java.util.Set;
 import javax.annotation.PreDestroy;
+
+import com.netty.util.ZookeeperUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.netty.constant.Constant;
 import com.netty.init.AfterSpringBegin;
@@ -112,7 +114,8 @@ public class WebSocketServer extends AfterSpringBegin{
 			jedis.close();
 			//启动线程将聊天信息存入redis
 			new Thread(new UpdateHistoryMsgToRedis()).start();
-			
+			//连接到zookeeper服务，用于监控用户上下线的状态变化
+			startZookeeper();
 			bulid(port);
 			
 		} catch (Exception e) {
@@ -179,7 +182,18 @@ public class WebSocketServer extends AfterSpringBegin{
 		jedis.select(RedisDB.dbSelectedForSystem);
 		Constant.contactsList = SerializeUtil.unserializeForList(jedis.get(RedisDB.systemUsers.getBytes()));
 	}
-	
+
+	//连接到zookeeper服务，用于监控用户上下线的状态变化
+	public void startZookeeper() {
+		try {
+			ZookeeperUtil.zkConnect();
+			ZookeeperUtil.zkNodeCache();
+			ZookeeperUtil.zkPathChildrenCache();
+		}catch (Exception e){
+			System.out.println("webSocket程序连接Zookeeper服务失败！！");
+		}
+
+	}
 	
 	//执行之后关闭
 	@PreDestroy
