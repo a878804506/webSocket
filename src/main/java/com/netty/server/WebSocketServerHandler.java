@@ -50,13 +50,8 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 	 */
 	@Override
 	public void channelActive(ChannelHandlerContext ctx) throws Exception {
-		// TODO Auto-generated method stub
-		
 //		ctx.channel().write(new TextWebSocketFrame("server:主动给客户端发消息"));
 		ctx.flush();
-		
-		
-		
 	}
 
 	/**
@@ -64,29 +59,24 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 	 */
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-		// TODO Auto-generated method stub
 		//剔除ChannelHandlerContext
 		for (String key : Constant.pushCtxMap.keySet()) {
 			if (ctx.equals(Constant.pushCtxMap.get(key))) {
 				// 从连接池内剔除
-				System.out.println(Constant.pushCtxMap.size());
-				System.out.println("剔除" + key);
+				System.out.println(Constant.pushCtxMap.size()+"剔除" + key);
 				Constant.pushCtxMap.remove(key);
-				System.out.println(Constant.pushCtxMap.size());
+				System.out.println(",之后的个数为"+Constant.pushCtxMap.size());
 			}
 		}
 	}
 
 	@Override
 	public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
-		// TODO Auto-generated method stub
-//		System.out.println("channelReadComplete");
 		ctx.flush();
 	}
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
-		// TODO Auto-generated method stub
 		// http：//xxxx
 		if (msg instanceof FullHttpRequest) {
 			handleHttpRequest(ctx, (FullHttpRequest) msg);
@@ -141,7 +131,7 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 			ctx.channel().write(new TextWebSocketFrame(JSON.toJSONString(systemMsg)));
         }
 
-        if(2 == Integer.valueOf(jsonObject.get("type").toString())) {  //JSON定义type=2 ----> 一对一聊天
+        if("2".equals(jsonObject.get("type").toString())) {  //JSON定义type=2 ----> 一对一聊天
      		OneToOneMessage oneToOneMessage = new OneToOneMessage();
      		oneToOneMessage.setId("");
      		oneToOneMessage.setMsgType((String) jsonObject.get("msgType"));
@@ -162,9 +152,9 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 	     		//加入聊天历史集合
 	     		Constant.addAllHistoryMessage(oneToOneMessage);
      		}
-        }else if(3 == Integer.valueOf(jsonObject.get("type").toString())) { //客户端要求拉取一对一聊天记录
+        }else if("3".equals(jsonObject.get("type").toString())) { //客户端要求拉取一对一聊天记录
         	List<OneToOneMessage> list = new LinkedList<>();
-        	if(0 == Integer.valueOf(jsonObject.get("msgDate").toString())) {  //只拉取最近三天的一对一聊天记录
+        	if("0" == jsonObject.get("msgDate").toString()) {  //只拉取最近三天的一对一聊天记录
          		// 获取 key
          		String oneToOneMessageKey = Constant.getOneToOneMessageKey(Integer.valueOf(jsonObject.get("from").toString()),Integer.valueOf(jsonObject.get("to").toString()));
          		//聊天记录
@@ -183,12 +173,20 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
      		oneToOneHistoryMessage.put("type", 3);
      		oneToOneHistoryMessage.put("data", JSON.toJSONString(list));
      		ctx.channel().write(new TextWebSocketFrame(JSON.toJSONString(oneToOneHistoryMessage)));
-        }else if(4 == Integer.valueOf(jsonObject.get("type").toString())) { // 客户端告知已读消息
+        }else if("4".equals(jsonObject.get("type").toString())) { // 客户端告知已读消息
         	//置为0条未读消息
         	Constant.unreadHistoryMessage.put(Constant.getOneToOneUnReadMessageKey(Integer.valueOf(jsonObject.get("from").toString()),Integer.valueOf(jsonObject.get("to").toString())),0);
-        }else if(5 == Integer.valueOf(jsonObject.get("type").toString())) {
-        	
-        }
+        }else if("5".equals(jsonObject.get("type").toString())) {
+        	// 用户下线通知，这里没有客户端向服务器发送5请求
+        }else if("6".equals(jsonObject.get("type").toString())) {
+			// 这里客户端发送心跳时 会带上自己的userId和sessionId  可以在这里验证一下
+
+			Map<String,Object> pongToClient = new HashMap<>();
+			pongToClient.put("id", "pongTo6");
+			pongToClient.put("type", 6);
+			pongToClient.put("stauts", true);
+			ctx.channel().write(new TextWebSocketFrame(JSON.toJSONString(pongToClient)));
+		}
 	}
 
 	// 第一次请求是http请求，请求头包括ws的信息
@@ -277,8 +275,6 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
 		// 输出日志
 		cause.printStackTrace();
-		ctx.close();
+//		ctx.close();
 	}
-	
-	
 }
