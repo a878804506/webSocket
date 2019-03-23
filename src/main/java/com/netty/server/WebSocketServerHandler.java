@@ -141,20 +141,16 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
      		oneToOneMessage.setDate(Constant.ymdhms.format(new Date()));
      		if(Constant.pushCtxMap.containsKey(oneToOneMessage.getTo().toString())) {//找到目标用户
      			push(Constant.pushCtxMap.get(oneToOneMessage.getTo().toString()),JSON.toJSONString(oneToOneMessage));
-     			//加入未读集合
-     			Constant.addunreadHistoryMessage(oneToOneMessage);
-     			//加入聊天历史集合
-	     		Constant.addAllHistoryMessage(oneToOneMessage);
-     		}else {//不在线  
+     		}else {//不在线
      			System.out.println("消息发送的目标用户不在线！");
-     			//加入未读集合
-     			Constant.addunreadHistoryMessage(oneToOneMessage);
-	     		//加入聊天历史集合
-	     		Constant.addAllHistoryMessage(oneToOneMessage);
      		}
+			//加入未读集合
+			Constant.addunreadHistoryMessage(oneToOneMessage);
+			//加入聊天历史集合
+			Constant.addAllHistoryMessage(oneToOneMessage);
         }else if("3".equals(jsonObject.get("type").toString())) { //客户端要求拉取一对一聊天记录
         	List<OneToOneMessage> list = new LinkedList<>();
-        	if("0" == jsonObject.get("msgDate").toString()) {  //只拉取最近三天的一对一聊天记录
+        	if("0".equals(jsonObject.get("msgDate").toString())) {  //只拉取最近三天的一对一聊天记录
          		// 获取 key
          		String oneToOneMessageKey = Constant.getOneToOneMessageKey(Integer.valueOf(jsonObject.get("from").toString()),Integer.valueOf(jsonObject.get("to").toString()));
          		//聊天记录
