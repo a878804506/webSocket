@@ -130,25 +130,43 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 			systemMsg.put("data", "服务器收到并返回了你发送的JSON："+request);
 			ctx.channel().write(new TextWebSocketFrame(JSON.toJSONString(systemMsg)));
         }
+        // 消息类型
+        String type = jsonObject.get("type").toString();
+        if("2".equals(type)) {  //JSON定义type=2 ----> 一对一聊天
+            String msgType = jsonObject.get("msgType").toString();
+            OneToOneMessage oneToOneMessage = new OneToOneMessage();
+            oneToOneMessage.setId(jsonObject.get("id").toString());
+            oneToOneMessage.setMsgType(msgType);
+            oneToOneMessage.setFrom(Integer.valueOf(jsonObject.get("from").toString()));
+            oneToOneMessage.setTo(Integer.valueOf(jsonObject.get("to").toString()));
+            oneToOneMessage.setData(jsonObject.get("data").toString());
+            oneToOneMessage.setDate(Constant.ymdhms.format(new Date()));
+            switch (msgType){
+                case "0":  //文本消息
+                case "1":  //表情消息
+                    if(Constant.pushCtxMap.containsKey(oneToOneMessage.getTo().toString())) {//找到目标用户
+                        push(Constant.pushCtxMap.get(oneToOneMessage.getTo().toString()),JSON.toJSONString(oneToOneMessage));
+                    }else {//不在线
+                        System.out.println("消息发送的目标用户不在线！");
+                    }
+                    //加入未读集合
+                    Constant.addunreadHistoryMessage(oneToOneMessage);
+                    //加入聊天历史集合
+                    Constant.addAllHistoryMessage(oneToOneMessage);
+                    break;
+                case "2": //图片消息
+					String isSuccess = Constant.uploadPicToFTP(oneToOneMessage); //此处用字符串返回 如果为“false” 则上传失败，如果为文件名字，则成功
+					System.out.println(isSuccess);
+					if("false".equals(isSuccess)){
+						// 发送失败就告知发送者 发送失败
 
-        if("2".equals(jsonObject.get("type").toString())) {  //JSON定义type=2 ----> 一对一聊天
-     		OneToOneMessage oneToOneMessage = new OneToOneMessage();
-     		oneToOneMessage.setId("");
-     		oneToOneMessage.setMsgType((String) jsonObject.get("msgType"));
-     		oneToOneMessage.setFrom(Integer.valueOf(jsonObject.get("from").toString()));
-     		oneToOneMessage.setTo(Integer.valueOf(jsonObject.get("to").toString()));
-     		oneToOneMessage.setData(jsonObject.get("data").toString());
-     		oneToOneMessage.setDate(Constant.ymdhms.format(new Date()));
-     		if(Constant.pushCtxMap.containsKey(oneToOneMessage.getTo().toString())) {//找到目标用户
-     			push(Constant.pushCtxMap.get(oneToOneMessage.getTo().toString()),JSON.toJSONString(oneToOneMessage));
-     		}else {//不在线
-     			System.out.println("消息发送的目标用户不在线！");
-     		}
-			//加入未读集合
-			Constant.addunreadHistoryMessage(oneToOneMessage);
-			//加入聊天历史集合
-			Constant.addAllHistoryMessage(oneToOneMessage);
-        }else if("3".equals(jsonObject.get("type").toString())) { //客户端要求拉取一对一聊天记录
+					}else{
+						//  发送成功就告知发送者发送成功，并且将图片消息发送到目标用户
+
+					}
+                    break;
+            }
+        }else if("3".equals(type)) { //客户端要求拉取一对一聊天记录
         	List<OneToOneMessage> list = new LinkedList<>();
         	if("0".equals(jsonObject.get("msgDate").toString())) {  //只拉取最近三天的一对一聊天记录
          		// 获取 key
@@ -169,12 +187,12 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
      		oneToOneHistoryMessage.put("type", 3);
      		oneToOneHistoryMessage.put("data", JSON.toJSONString(list));
      		ctx.channel().write(new TextWebSocketFrame(JSON.toJSONString(oneToOneHistoryMessage)));
-        }else if("4".equals(jsonObject.get("type").toString())) { // 客户端告知已读消息
+        }else if("4".equals(type)) { // 客户端告知已读消息
         	//置为0条未读消息
         	Constant.unreadHistoryMessage.put(Constant.getOneToOneUnReadMessageKey(Integer.valueOf(jsonObject.get("from").toString()),Integer.valueOf(jsonObject.get("to").toString())),0);
-        }else if("5".equals(jsonObject.get("type").toString())) {
+        }else if("5".equals(type)) {
         	// 用户下线通知，这里没有客户端向服务器发送5请求
-        }else if("6".equals(jsonObject.get("type").toString())) {
+        }else if("6".equals(type)) {
 			// 这里客户端发送心跳时 会带上自己的userId和sessionId  可以在这里验证一下
 
 			Map<String,Object> pongToClient = new HashMap<>();
@@ -210,7 +228,8 @@ public class WebSocketServerHandler extends BaseWebSocketServerHandler {
 			return;
 		}
 		
-		WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory("ws:/" + ctx.channel() + "/websocket", null, false);
+		WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory
+                ("ws:/" + ctx.channel() + "/websocket", null, false,65535*10);
 		handshaker = wsFactory.newHandshaker(req);
 		if (handshaker == null) {
 			// 不支持

@@ -1,19 +1,24 @@
 package com.netty.constant;
 
+import com.alibaba.fastjson.JSON;
+import com.netty.util.Base64AndPictureUtil;
+import com.netty.util.FtpUtil;
 import io.netty.channel.ChannelHandlerContext;
 
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.netty.entity.OneToOneMessage;
+
+import javax.imageio.ImageIO;
+
+import static com.netty.util.FtpUtil.messageFilePath;
 
 /**
  * 常量池
@@ -100,6 +105,38 @@ public class Constant {
 		}
  		synchronized (Constant.unreadHistoryMessage) {  //存入时加锁
  			Constant.unreadHistoryMessage.put(oneToOneMessageCountKey, unReadMsgCount);
+		}
+	}
+
+	//将用户发送的图片上传到ftp服务器
+	public static String uploadPicToFTP(OneToOneMessage picMsg){
+		try{
+			//  picMsg.getId()  为 生成图片id
+			String temp = picMsg.getData().split(";")[0].split("/")[1];
+			if("jpeg".equals(temp) || "gif".equals(temp) || "png".equals(temp) || "bmp".equals(temp)){
+				picMsg.setId(picMsg.getId()+"."+temp);
+			}else{
+				// 非图片
+
+			}
+			//本服务器的图片路径
+			String localFilePath = FtpUtil.localFilePath + System.getProperty("file.separator")+ picMsg.getId();
+			// base64 转换成图片
+			Base64AndPictureUtil.Base64ToImage(picMsg.getData(), localFilePath);
+			//输出目录+输出文件
+			File out = new File(localFilePath);
+			//上传图片到ftp服务器
+			List<String> fileNames = new ArrayList<>();
+			fileNames.add(picMsg.getId());
+			//上传
+			FtpUtil.uploadLocalFile(FtpUtil.messageFilePath+"/",fileNames);
+			//删除临时图片
+			out.delete();
+			return picMsg.getId();
+		}catch (Exception e){
+			return "false";
+		}finally {
+
 		}
 	}
 }

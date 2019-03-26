@@ -11,7 +11,7 @@ public class OneToOneMessage  implements Serializable {
 	
 	private static final long serialVersionUID = 1L;
 	
-	private String id ;
+	private String id ; // 当发送图片时 是前端发过来的uuid
 	private String msgType ;  // 消息类型 0：文本     1：图片     2：表情
 	private Integer from;  //消息发出方
 	private Integer to;   // 消息接收方
